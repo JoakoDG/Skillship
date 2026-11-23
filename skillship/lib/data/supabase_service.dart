@@ -30,7 +30,8 @@ class SupabaseService {
   // REGISTRO DEL ESTUDIANTE
   // ===========================================================================
 
-  /// Da de alta el usuario, su perfil y sube los 4 documentos que pide la facultad.
+  /// Da de alta el usuario, su perfil y sube los 4 documentos que pide la
+  /// facultad. El alta real vive en [_altaConDocumentos].
   ///
   /// [documentos] va ordenado: etiqueta del campo -> archivo elegido.
   Future<void> registrarEstudianteCompleto({
@@ -41,6 +42,60 @@ class SupabaseService {
     required String institucion,
     required String carrera,
     required Map<String, PlatformFile> documentos,
+  }) {
+    return _altaConDocumentos(
+      email: email,
+      password: password,
+      rol: rol,
+      documentos: documentos,
+      crearDatos: (usuarioId) async {
+        // Datos del alumno
+        await _client.from('perfiles_estudiantes').insert({
+          'usuario_id': usuarioId,
+          'nombre': nombre.trim(),
+          'institucion': institucion.trim(),
+          'carrera': carrera.trim(),
+        });
+      },
+    );
+  }
+
+  /// Da de alta la cuenta de una entidad educativa con su perfil y sus
+  /// 4 documentos (mismo mecanismo que el estudiante).
+  Future<void> registrarUniversidadCompleto({
+    required String email,
+    required String password,
+    required String nombre,
+    required String cuit,
+    required String telefono,
+    required Map<String, PlatformFile> documentos,
+  }) {
+    return _altaConDocumentos(
+      email: email,
+      password: password,
+      rol: 'Universidad',
+      documentos: documentos,
+      crearDatos: (usuarioId) async {
+        await _client.from('perfiles_universidades').insert({
+          'usuario_id': usuarioId,
+          'nombre': nombre.trim(),
+          'cuit': cuit.trim(),
+          'telefono': telefono.trim(),
+        });
+      },
+    );
+  }
+
+  /// Camino común del registro:
+  ///   1. Sube los archivos ANTES de tocar la base (si falla, no se crea nada).
+  ///   2. Crea la cuenta, ejecuta [crearDatos] (perfil) y registra los archivos.
+  ///   3. Si falla la base, borra los archivos para no dejar huérfanos.
+  Future<void> _altaConDocumentos({
+    required String email,
+    required String password,
+    required String rol,
+    required Map<String, PlatformFile> documentos,
+    required Future<void> Function(int usuarioId) crearDatos,
   }) async {
     if (documentos.isEmpty) {
       throw Exception('Seleccioná los documentos pedidos antes de registrarte.');
@@ -71,13 +126,8 @@ class SupabaseService {
           .single();
       final int usuarioId = (usuario['id'] as num).toInt();
 
-      // 3) Datos del alumno
-      await _client.from('perfiles_estudiantes').insert({
-        'usuario_id': usuarioId,
-        'nombre': nombre.trim(),
-        'institucion': institucion.trim(),
-        'carrera': carrera.trim(),
-      });
+      // 3) Datos específicos del rol (perfil del estudiante / de la universidad)
+      await crearDatos(usuarioId);
 
       // 4) Pasar cada archivo a la carpeta del usuario y registrar su ruta
       for (final entrada in subidos.entries) {
@@ -181,6 +231,24 @@ class SupabaseService {
       'nombre': fila['nombre']?.toString() ?? '',
       'institucion': fila['institucion']?.toString() ?? '',
       'carrera': fila['carrera']?.toString() ?? '',
+    };
+  }
+
+  /// Datos del perfil de la entidad educativa (nombre, CUIT y teléfono).
+  Future<Map<String, String>> obtenerPerfilUniversidad({required int usuarioId}) async {
+    final filas = await _client
+        .from('perfiles_universidades')
+        .select('nombre, cuit, telefono')
+        .eq('usuario_id', usuarioId)
+        .limit(1);
+
+    if (filas.isEmpty) return <String, String>{};
+
+    final fila = filas.first;
+    return {
+      'nombre': fila['nombre']?.toString() ?? '',
+      'cuit': fila['cuit']?.toString() ?? '',
+      'telefono': fila['telefono']?.toString() ?? '',
     };
   }
 

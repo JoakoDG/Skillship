@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:skillship/models/usuario.dart';
+import 'package:skillship/ui/widgets/perfil_universidad.dart';
 import 'universidad_gestionar_alumnos_screen.dart';
 import 'universidad_solicitudes_screen.dart';
 
 class UniversidadMainScreen extends StatefulWidget {
-  const UniversidadMainScreen({super.key});
+  final Usuario usuario;
+
+  const UniversidadMainScreen({super.key, required this.usuario});
 
   @override
   State<UniversidadMainScreen> createState() => _UniversidadMainScreenState();
@@ -12,9 +16,9 @@ class UniversidadMainScreen extends StatefulWidget {
 class _UniversidadMainScreenState extends State<UniversidadMainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const UniversidadGestionarAlumnosScreen(),
-    const UniversidadSolicitudesScreen(),
+  late final List<Widget> _screens = [
+    UniversidadGestionarAlumnosScreen(usuario: widget.usuario),
+    UniversidadSolicitudesScreen(usuario: widget.usuario),
   ];
 
   @override
@@ -33,7 +37,7 @@ class _UniversidadMainScreenState extends State<UniversidadMainScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   InkWell(
-                    onTap: () {},
+                    onTap: () => mostrarPerfilUniversidad(context, widget.usuario),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 12),

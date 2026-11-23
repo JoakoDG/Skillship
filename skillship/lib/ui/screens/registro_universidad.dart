@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:skillship/data/supabase_service.dart';
 import 'package:skillship/ui/widgets/button.dart';
@@ -21,20 +22,85 @@ class RegistroUniversidadScreen extends StatefulWidget {
 }
 
 class _RegistroUniversidadScreenState extends State<RegistroUniversidadScreen> {
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _cuitController = TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
+
+  /// Documentos que pide la entidad educativa, en el orden que se muestran.
+  static const List<String> _tiposDocumento = [
+    'Convenio de Marco de Pasantias',
+    'Copia de DNI',
+    'Estatuto social',
+    'Constancia de CUIT',
+  ];
+
+  /// etiqueta del campo -> archivo elegido por el usuario
+  final Map<String, PlatformFile> _documentos = {};
+
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _cuitController.dispose();
+    _telefonoController.dispose();
+    super.dispose();
+  }
+
+  // Abre el selector de archivos nativo y guarda el elegido.
+  Future<void> _seleccionarArchivo(String tipo) async {
+    try {
+      final archivos = await FilePicker.pickFiles(type: FileType.any);
+      if (archivos.isEmpty) return; // el usuario canceló
+      setState(() => _documentos[tipo] = archivos.first);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo abrir el selector de archivos: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _registrarse() async {
+    if (_nombreController.text.trim().isEmpty ||
+        _cuitController.text.trim().isEmpty ||
+        _telefonoController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor completa todos los campos de texto')),
+      );
+      return;
+    }
+
+    final faltantes = _tiposDocumento.where((t) => !_documentos.containsKey(t));
+    if (faltantes.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Faltan archivos por cargar: ${faltantes.join(', ')}')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      // Cuenta de acceso: el resto de los datos sigue siendo maqueta.
-      await SupabaseService.instance.crearCuenta(
+      await SupabaseService.instance.registrarUniversidadCompleto(
         email: widget.email,
         password: widget.password,
-        rol: 'Universidad',
+        nombre: _nombreController.text,
+        cuit: _cuitController.text,
+        telefono: _telefonoController.text,
+        documentos: _documentos,
       );
 
       if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registro completado. Ya podés iniciar sesión.'),
+          backgroundColor: Color(0xFF2D2D2D),
+        ),
+      );
+
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const PantallaIngreso()),
@@ -52,6 +118,15 @@ class _RegistroUniversidadScreenState extends State<RegistroUniversidadScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Widget _campoDocumento(String tipo) {
+    return UploadField(
+      label: tipo,
+      isUpload: true,
+      fileName: _documentos[tipo]?.name,
+      onTap: () => _seleccionarArchivo(tipo),
+    );
   }
 
   @override
@@ -91,28 +166,41 @@ class _RegistroUniversidadScreenState extends State<RegistroUniversidadScreen> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
-                          const UploadField(label: 'Empresa'),
-                          const UploadField(label: 'CUIT'),
-                          const UploadField(label: 'Telefono'),
+                          TextField(
+                            controller: _nombreController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre de la institución',
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          TextField(
+                            controller: _cuitController,
+                            decoration: const InputDecoration(
+                              labelText: 'CUIT',
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          TextField(
+                            controller: _telefonoController,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono',
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
                           const SizedBox(height: 16),
 
                           // Campos con ícono de carga
-                          const UploadField(
-                            label: 'Convenio de Marco de Pasantias',
-                            isUpload: true,
-                          ),
-                          const UploadField(
-                            label: 'Copia de DNI',
-                            isUpload: true,
-                          ),
-                          const UploadField(
-                            label: 'Estatuto social',
-                            isUpload: true,
-                          ),
-                          const UploadField(
-                            label: 'Constancia de CUIT',
-                            isUpload: true,
-                          ),
+                          _campoDocumento('Convenio de Marco de Pasantias'),
+                          _campoDocumento('Copia de DNI'),
+                          _campoDocumento('Estatuto social'),
+                          _campoDocumento('Constancia de CUIT'),
                           SizedBox(
                             width: double.infinity,
                             child: _isLoading

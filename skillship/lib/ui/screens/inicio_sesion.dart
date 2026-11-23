@@ -84,7 +84,7 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const UniversidadMainScreen(),
+            builder: (context) => UniversidadMainScreen(usuario: usuario),
           ),
         );
       }

@@ -1,5 +1,5 @@
 -- =============================================================================
--- SkillShip - Esquema completo del flujo del ESTUDIANTE
+-- SkillShip - Esquema completo (flujo ESTUDIANTE + flujo UNIVERSIDAD)
 --
 -- Cómo usarlo:
 --   1. Abrí tu proyecto Supabase -> SQL Editor -> New query
@@ -8,11 +8,16 @@
 --
 -- Qué hace:
 --   * Crea las tablas base solo si faltan (no toca lo que ya tenés)
---   * Crea las tablas nuevas: pasantias, postulaciones, horas_pasantia, reclamos
+--   * Crea las tablas: pasantias, postulaciones, horas_pasantia, reclamos
+--     y perfiles_universidades (alta de la entidad educativa)
+--   * Agrega perfiles_estudiantes.universidad_id: vínculo manual
+--     alumno <-> universidad (la universidad vincula por email)
 --   * Abre las políticas RLS para que la app (rol anon) pueda leer y escribir
 --   * Crea el bucket "documentos" de Storage + sus permisos
 --   * Carga datos de ejemplo: 6 propuestas de pasantía, 1 aceptada y en proceso
---     con horas cargadas y un reclamo, y 1 postulación pendiente
+--     con horas cargadas y un reclamo, 1 postulación pendiente, y para la
+--     universidad: 1 cuenta demo con 2 alumnos vinculados y 4 solicitudes
+--     (2 pendientes, 1 en proceso, 1 rechazada)
 --
 -- Es idempotente: volver a ejecutarlo no duplica nada (podés pegarlo de nuevo
 -- si ya lo corriste antes, así se agregan las tablas nuevas que falten).
@@ -42,6 +47,23 @@ create table if not exists public.documentos_registro (
   tipo_documento text not null,
   archivo_path  text not null
 );
+
+-- Perfil de la entidad educativa (la cuenta existe en usuarios con rol
+-- 'Universidad'; acá viven sus datos y los 4 documentos del registro)
+create table if not exists public.perfiles_universidades (
+  id         bigserial primary key,
+  usuario_id bigint not null unique references public.usuarios (id) on delete cascade,
+  nombre     text not null,
+  cuit       text not null default '',
+  telefono   text not null default ''
+);
+
+-- Vínculo manual alumno <-> universidad: la universidad agrega a sus alumnos
+-- por email desde el panel (on delete set null: si se borra la universidad el
+-- alumno queda sin vínculo, no se borra)
+alter table public.perfiles_estudiantes
+  add column if not exists universidad_id bigint
+  references public.usuarios (id) on delete set null;
 
 -- -----------------------------------------------------------------------------
 -- 2. TABLAS NUEVAS DEL FLUJO DE PASANTÍAS
@@ -97,6 +119,7 @@ create table if not exists public.reclamos (
 create index if not exists idx_postulaciones_usuario on public.postulaciones (usuario_id);
 create index if not exists idx_horas_postulacion     on public.horas_pasantia (postulacion_id);
 create index if not exists idx_reclamos_postulacion  on public.reclamos (postulacion_id);
+create index if not exists idx_alumnos_universidad   on public.perfiles_estudiantes (universidad_id);
 
 -- -----------------------------------------------------------------------------
 -- 3. POLÍTICAS RLS (la app no usa Supabase Auth: entra con la clave pública)
@@ -105,19 +128,22 @@ create index if not exists idx_reclamos_postulacion  on public.reclamos (postula
 -- es una decisión a propósito para que funcione sin usuarios de Supabase Auth.
 -- En un producto real esto NO se hace así.
 -- -----------------------------------------------------------------------------
-alter table public.usuarios            enable row level security;
-alter table public.perfiles_estudiantes enable row level security;
-alter table public.documentos_registro  enable row level security;
-alter table public.pasantias            enable row level security;
-alter table public.postulaciones        enable row level security;
-alter table public.horas_pasantia       enable row level security;
+alter table public.usuarios               enable row level security;
+alter table public.perfiles_estudiantes   enable row level security;
+alter table public.perfiles_universidades enable row level security;
+alter table public.documentos_registro    enable row level security;
+alter table public.pasantias              enable row level security;
+alter table public.postulaciones          enable row level security;
+alter table public.horas_pasantia         enable row level security;
+alter table public.reclamos               enable row level security;
 
 do $$
 declare t text;
 begin
   foreach t in array array[
-    'usuarios', 'perfiles_estudiantes', 'documentos_registro',
-    'pasantias', 'postulaciones', 'horas_pasantia', 'reclamos'
+    'usuarios', 'perfiles_estudiantes', 'perfiles_universidades',
+    'documentos_registro', 'pasantias', 'postulaciones',
+    'horas_pasantia', 'reclamos'
   ] loop
     execute format(
       'drop policy if exists "acceso_prototipo" on public.%I', t);
@@ -274,3 +300,81 @@ begin
   values (v_pasantia_id, v_usuario_id, 'pendiente', null)
   on conflict (pasantia_id, usuario_id) do nothing;
 end $$;
+
+-- 5.4. UNIVERSIDAD de prueba (flujo "entidad educativa")
+--      Email: universidad@demo.com   Contraseña: demo1234
+insert into public.usuarios (email, password, rol)
+values ('universidad@demo.com', 'demo1234', 'Universidad')
+on conflict (email) do nothing;
+
+insert into public.perfiles_universidades (usuario_id, nombre, cuit, telefono)
+select u.id, 'Universidad Nacional de La Plata', '30-64798482-6', '221-4228844'
+from public.usuarios u
+where u.email = 'universidad@demo.com'
+  and not exists (
+    select 1 from public.perfiles_universidades p where p.usuario_id = u.id
+  );
+
+-- 5.4.1. Un SEGUNDO alumno de prueba (para que la universidad tenga más
+--         de un alumno en su panel y se pueda vincular/desvincular)
+insert into public.usuarios (email, password, rol)
+values ('alumno@demo.com', 'demo1234', 'Estudiante')
+on conflict (email) do nothing;
+
+insert into public.perfiles_estudiantes (usuario_id, nombre, institucion, carrera)
+select u.id, 'Martín Gómez', 'Universidad Nacional de La Plata', 'Licenciatura en Sistemas de Información'
+from public.usuarios u
+where u.email = 'alumno@demo.com'
+  and not exists (
+    select 1 from public.perfiles_estudiantes p where p.usuario_id = u.id
+  );
+
+-- 5.4.2. Vinculamos los 2 alumnos a la universidad demo (universidad_id)
+update public.perfiles_estudiantes p
+   set universidad_id = u.id
+  from public.usuarios u
+ where u.email = 'universidad@demo.com'
+   and p.usuario_id in (
+     select id from public.usuarios
+      where email in ('estudiante@demo.com', 'alumno@demo.com')
+   )
+   and p.universidad_id is distinct from u.id;
+
+-- 5.4.3. Solicitudes de ejemplo que faltan para el panel de la universidad:
+--         1 pendiente (para aceptar/rechazar) y 1 rechazada. Con las de Sofía
+--         (5.3) el panel arranca con 4 en total.
+do $$
+declare
+  v_uni_id      bigint;
+  v_sofia_id    bigint;
+  v_martin_id   bigint;
+  v_pasantia_id bigint;
+begin
+  select id into v_uni_id
+    from public.usuarios where email = 'universidad@demo.com' limit 1;
+  select id into v_sofia_id
+    from public.usuarios where email = 'estudiante@demo.com' limit 1;
+  select id into v_martin_id
+    from public.usuarios where email = 'alumno@demo.com' limit 1;
+
+  if v_uni_id is null or v_sofia_id is null or v_martin_id is null then
+    return;  -- falta algún usuario del seed: no hay nada que vincular
+  end if;
+
+  -- a) Martín: PENDIENTE (la universidad la puede aceptar o rechazar)
+  select id into v_pasantia_id
+    from public.pasantias where titulo = 'Soporte TI y Redes' limit 1;
+  insert into public.postulaciones (pasantia_id, usuario_id, estado, fecha_inicio)
+  values (v_pasantia_id, v_martin_id, 'pendiente', null)
+  on conflict (pasantia_id, usuario_id) do nothing;
+
+  -- b) Martín: RECHAZADA (para ver ese estado en la lista)
+  select id into v_pasantia_id
+    from public.pasantias where titulo = 'Prácticas en Recursos Humanos' limit 1;
+  insert into public.postulaciones (pasantia_id, usuario_id, estado, fecha_inicio)
+  values (v_pasantia_id, v_martin_id, 'rechazada', null)
+  on conflict (pasantia_id, usuario_id) do nothing;
+end $$;
+
+-- Nota: las solicitudes de Sofía (1 pendiente + 1 en proceso) ya se crearon en
+-- 5.3, así que el panel de la universidad arranca con 4 solicitudes en total.

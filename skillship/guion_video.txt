@@ -1,0 +1,160 @@
+================================================================================
+                        GUIÓN DEL VIDEO — SKILLSHIP
+================================================================================
+
+Duración estimada: 5–6 minutos
+Tono: conversacional, explicativo. Mirar a la cámara en la intro y el cierre;
+narrar en voz off durante el demo.
+
+================================================================================
+PARTE 1 — PITCH DEL PROYECTO (≈1 min)
+================================================================================
+
+[DIAPOSITIVA: título con el nombre "SkillShip" + un screenshot de la app]
+
+  Arrancamos con el nombre: SkillShip. Es una app hecha en Flutter para que
+  los estudiantes de la facultad puedan encontrar, postularse y gestionar sus
+  pasantías desde un solo lugar.
+
+[DIAPOSITIVA: el problema]
+
+  El problema que resuelve es simple: hoy la información de pasantías vive
+  repartida —avisos sueltos, correos, planillas— y el estudiante no sabe en
+  qué estado está su postulación ni cuántas horas lleva cargadas. SkillShip
+  centraliza todo ese ciclo: buscar la propuesta, postularse, y una vez
+  aceptado, llevar el control de las horas, el tutor asignado y los reclamos.
+
+[DIAPOSITIVA: público objetivo]
+
+  El público objetivo es el estudiante de la facultad —quien hoy necesita una
+  pasantía para graduarse—. Por eso toda la demo que van a ver recorre el
+  flujo completo del rol estudiante.
+
+[DIAPOSITIVA: decisiones de diseño — 3 bullets]
+
+  Tres decisiones de diseño que vale la pena mencionar:
+   1. Subida de documentos en el registro: el estudiante adjunta los 4
+      archivos que pide la facultad y se guardan en la nube junto a su cuenta.
+   2. Interfaz simple y guiada: pestañas claras —buscar, gestionar— con
+      buscador, para que nada quede escondido.
+   3. Todo se guarda en una base de datos real (Supabase), así lo que ves en
+      pantalla es información viva, no maquetas.
+
+================================================================================
+PARTE 2 — EVOLUCIÓN TÉCNICA (≈1,5 min)
+================================================================================
+
+[PANTALLA: el editor de código con el árbol de carpetas expandido
+ — modo oscuro, zoom alto]
+
+  Vamos al código. Lo primero que cambió fue la estructura: ajustamos la disposicion de carpetas a la que correspondia,
+  tres carpetas claras que separan responsabilidades.
+
+[Señalar con el mouse cada carpeta]
+
+  - models/ — los modelos: Usuario, Pasantia, Postulacion, Reclamo. Son las
+    entidades del sistema, con sus atributos.
+  - data/ — la capa de datos: acá vive TODA la lógica que habla con la base
+    de datos. Ningún widget toca Supabase directamente.
+  - ui/ — las pantallas y los componentes visuales. Se encargan SOLO de
+    mostrar y de avisar cuando el usuario toca algo.
+
+[Abrir pasantias_repository.dart y después repositorio_pasantias.dart]
+
+  El punto interesante es este patrón: las pantallas no hablan con Supabase,
+  hablan con un repositorio. Hay una interfaz que define qué se puede pedir
+  —obtener pasantías, postularse, enviar reclamos— y dos implementaciones:
+   - una real, que consulta la base de datos;
+   - y un mock, con datos de prueba en listas, que se usa cuando la base no
+     está disponible.
+
+[Señalar la fachada repositorio_pasantias.dart]
+
+  Una fachada decide en el arranque cuál usar: si Supabase responde, va a la
+  base real; si no, cae en modo demo. Esto cumple dos cosas: deja de haber
+  datos hardcodeados en las pantallas, y la demo nunca se rompe aunque falte
+  configurar algo.
+
+================================================================================
+PARTE 3 — DEMO EN VIVO (≈2,5 min)
+================================================================================
+
+[PANTALLA: emulador corriendo la app. Ir paso a paso, narrando]
+
+  Bueno, veámoslo funcionando. Arrancamos en la pantalla de ingreso.
+
+--- 1. Registro (≈40 s) ---
+
+  Nos vamos a "Registrarse como estudiante". Completo el formulario —nombre,
+  institución, carrera, correo y contraseña— y acá está una de las
+  funcionalidades clave: los 4 documentos que pide la facultad se suben desde
+  acá. Eligo los archivos, se muestran adjuntos, y al confirmar:
+
+  [Subir, mostrar spinner breve, y el aviso de éxito]
+
+  Se creó la cuenta y los archivos quedaron guardados en la nube.
+
+--- 2. Login (≈20 s) ---
+
+  Ahora inicio sesión con la cuenta recién creada —o con la de prueba, que
+  está en el README—. El sistema valida contra la base y me deja entrar.
+
+--- 3. Búsqueda de pasantías (≈30 s) ---
+
+  Esta es la primera prueba de que los datos son dinámicos: acá se cargan las
+  propuestas que están en la base de datos, con su buscador. Escribo un
+  filtro y la lista se actualiza al momento. Abro una propuesta y me muestra
+  el detalle completo: empresa, requisitos, modalidad, horas.
+
+--- 4. Postulación (≈20 s) ---
+
+  Presiono "Postularse" y la solicitud queda registrada. Si vuelvo atrás, la
+  propuesta ya aparece marcada como postulada —eso viene de la base, no de
+  una lista fija.
+
+--- 5. Gestionar pasantía (≈40 s) ---
+
+  Y acá está el flujo completo: la pestaña "Gestionar pasantía" muestra la
+  pasantía aceptada y en proceso, con el tutor asignado, las horas cargadas
+  semana a semana con su total, y todas mis postulaciones con su estado.
+
+  Bajo a "Reclamos": escribo uno —por ejemplo, que no se presentó el tutor—,
+  lo envío, y aparece listado abajo con la fecha y el estado. Eso quedó
+  guardado en la base de datos.
+
+  [Opcional: cambiar algo en Supabase y volver a cargar para probar que es
+   real]
+
+================================================================================
+CIERRE (≈20 s)
+================================================================================
+
+[CÁMARA]
+
+  Para resumir: SkillShip cubre el ciclo completo del estudiante —registro
+  con documentos, búsqueda, postulación y gestión— con una arquitectura
+  limpia que separa modelos, datos e interfaz, y un repositorio que decide
+  entre la base real y datos de prueba. Gracias, ¿alguna pregunta?
+
+================================================================================
+TIPS PARA LA GRABACIÓN
+================================================================================
+
+- Tené preparada la cuenta demo (estudiante@demo.com / demo1234) por si algo
+  falla en vivo. Evita escribir datos nuevos en la grabación.
+- Corré el schema.sql antes de grabar. Si no, el modo demo se activa y el
+  recorrido mostraría datos falsos.
+- Grabá la demo en 1 toma y cortá después los momentos lentos. Da sensación
+  de flujo real.
+- Zoom alto en el editor durante la Parte 2. Que se lean los nombres de
+  carpetas desde el celular.
+- Mostrá el enModoDemo brevemente si el profe pregunta por los mocks. Es la
+  evidencia visible del patrón Repository.
+
+================================================================================
+CUENTA DE PRUEBA
+================================================================================
+
+  Correo:     estudiante@demo.com
+  Contraseña: demo1234
+  Rol:        Estudiante
