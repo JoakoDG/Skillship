@@ -12,6 +12,10 @@ class Pasantia {
   final int duracionSemanas;
   final String estado;
 
+  /// Cuenta de la empresa dueña (`usuarios.id`). Puede ser `null` en las
+  /// propuestas heredadas que no tienen dueño asignado.
+  final int? empresaId;
+
   /// Estado de la postulación del estudiante actual (`null` si aún no postuló).
   /// Valores: pendiente | en_proceso | finalizada | rechazada
   final String? estadoPostulacion;
@@ -28,14 +32,19 @@ class Pasantia {
     required this.horasSemanales,
     required this.duracionSemanas,
     required this.estado,
+    this.empresaId,
     this.estadoPostulacion,
   });
 
   bool get yaPostulo => estadoPostulacion != null;
 
   /// Copia con cambios puntuales. Lo usa el repositorio en modo demo para
-  /// marcar qué propuestas ya tienen postulación.
-  Pasantia copyWith({String? estadoPostulacion}) {
+  /// marcar qué propuestas ya tienen postulación o para cerrarlas.
+  Pasantia copyWith({
+    String? estadoPostulacion,
+    String? estado,
+    int? empresaId,
+  }) {
     return Pasantia(
       id: id,
       titulo: titulo,
@@ -47,7 +56,8 @@ class Pasantia {
       requisitos: requisitos,
       horasSemanales: horasSemanales,
       duracionSemanas: duracionSemanas,
-      estado: estado,
+      estado: estado ?? this.estado,
+      empresaId: empresaId ?? this.empresaId,
       estadoPostulacion: estadoPostulacion ?? this.estadoPostulacion,
     );
   }
@@ -65,6 +75,7 @@ class Pasantia {
       horasSemanales: (map['horas_semanales'] as num?)?.toInt() ?? 0,
       duracionSemanas: (map['duracion_semanas'] as num?)?.toInt() ?? 0,
       estado: map['estado']?.toString() ?? 'disponible',
+      empresaId: (map['empresa_id'] as num?)?.toInt(),
       estadoPostulacion: estadoPostulacion,
     );
   }

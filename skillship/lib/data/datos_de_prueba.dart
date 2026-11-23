@@ -1,5 +1,6 @@
 import 'package:skillship/models/alumno.dart';
 import 'package:skillship/models/pasantia.dart';
+import 'package:skillship/models/perfil_empresa.dart';
 import 'package:skillship/models/postulacion.dart';
 import 'package:skillship/models/reclamo.dart';
 import 'package:skillship/models/solicitud.dart';
@@ -20,6 +21,9 @@ class DatosDePrueba {
   // Ids del flujo de la universidad (en el modo demo no hay BD, son fijos).
   static const int idUsuarioAlumnoDemo = 2;
   static const int idUniversidadDemo = 10;
+
+  // Id del flujo de la empresa (en el modo demo no hay BD, es fijo).
+  static const int idEmpresaDemo = 11;
 
   /// Busca una propuesta por su título (se usa para armar las postulaciones).
   static Pasantia porTitulo(String titulo) =>
@@ -46,6 +50,7 @@ class DatosDePrueba {
       horasSemanales: 20,
       duracionSemanas: 16,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
     const Pasantia(
       id: 2,
@@ -63,6 +68,7 @@ class DatosDePrueba {
       horasSemanales: 16,
       duracionSemanas: 12,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
     const Pasantia(
       id: 3,
@@ -78,6 +84,7 @@ class DatosDePrueba {
       horasSemanales: 20,
       duracionSemanas: 12,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
     const Pasantia(
       id: 4,
@@ -95,6 +102,7 @@ class DatosDePrueba {
       horasSemanales: 24,
       duracionSemanas: 12,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
     const Pasantia(
       id: 5,
@@ -110,6 +118,7 @@ class DatosDePrueba {
       horasSemanales: 20,
       duracionSemanas: 10,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
     const Pasantia(
       id: 6,
@@ -125,6 +134,7 @@ class DatosDePrueba {
       horasSemanales: 20,
       duracionSemanas: 10,
       estado: 'disponible',
+      empresaId: idEmpresaDemo,
     ),
   ];
 
@@ -246,7 +256,7 @@ class DatosDePrueba {
   ];
 
   /// Solicitudes del panel: 2 pendientes (para aceptar/rechazar),
-  /// 1 en proceso y 1 rechazada.
+  /// 2 en proceso y 1 rechazada.
   static final List<Solicitud> solicitudesUniversidad = [
     Solicitud(
       id: 1,
@@ -259,6 +269,100 @@ class DatosDePrueba {
       empresaPasantia: 'Softtek',
       descripcionPasantia: porTitulo('Desarrollo Backend .NET').descripcion,
       nombreAlumno: 'Sofía Ramírez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+    Solicitud(
+      id: 2,
+      pasantiaId: porTitulo('Análisis de Datos con Python').id,
+      usuarioId: idUsuarioDemo,
+      estado: 'pendiente',
+      tituloPasantia: 'Análisis de Datos con Python',
+      empresaPasantia: 'Mercado Libre',
+      descripcionPasantia: porTitulo('Análisis de Datos con Python').descripcion,
+      nombreAlumno: 'Sofía Ramírez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+    Solicitud(
+      id: 3,
+      pasantiaId: porTitulo('Soporte TI y Redes').id,
+      usuarioId: idUsuarioAlumnoDemo,
+      estado: 'pendiente',
+      tituloPasantia: 'Soporte TI y Redes',
+      empresaPasantia: 'Cooperativa de Servicios Tech',
+      descripcionPasantia: porTitulo('Soporte TI y Redes').descripcion,
+      nombreAlumno: 'Martín Gómez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+    Solicitud(
+      id: 4,
+      pasantiaId: porTitulo('Prácticas en Recursos Humanos').id,
+      usuarioId: idUsuarioAlumnoDemo,
+      estado: 'rechazada',
+      tituloPasantia: 'Prácticas en Recursos Humanos',
+      empresaPasantia: 'Adecco Argentina',
+      descripcionPasantia:
+          porTitulo('Prácticas en Recursos Humanos').descripcion,
+      nombreAlumno: 'Martín Gómez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+    Solicitud(
+      id: 5,
+      pasantiaId: porTitulo('Marketing Digital y Contenidos').id,
+      usuarioId: idUsuarioAlumnoDemo,
+      estado: 'en_proceso',
+      tutor: 'Lic. Ana Torres',
+      fechaInicio: '2026-09-21',
+      tituloPasantia: 'Marketing Digital y Contenidos',
+      empresaPasantia: 'Grupo Clarín',
+      descripcionPasantia:
+          porTitulo('Marketing Digital y Contenidos').descripcion,
+      nombreAlumno: 'Martín Gómez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Flujo EMPRESA: perfil y las postulaciones a sus propias propuestas
+  // ---------------------------------------------------------------------------
+
+  /// Perfil de la empresa de prueba (es dueña de todas las propuestas de
+  /// arriba, igual que el seed de `supabase/schema.sql`).
+  static final PerfilEmpresa perfilEmpresa = PerfilEmpresa(
+    id: 1,
+    usuarioId: idEmpresaDemo,
+    nombre: 'Globant',
+    cuit: '30-70878655-7',
+    telefono: '0800-222-3333',
+  );
+
+  /// Postulaciones a las propuestas de la empresa: 2 pasantes EN PROCESO,
+  /// 2 pendientes y 1 rechazada.
+  static final List<Solicitud> postulacionesEmpresa = [
+    Solicitud(
+      id: 1,
+      pasantiaId: porTitulo('Desarrollo Backend .NET').id,
+      usuarioId: idUsuarioDemo,
+      estado: 'en_proceso',
+      tutor: 'Ing. Carolina Méndez',
+      fechaInicio: '2026-09-07',
+      tituloPasantia: 'Desarrollo Backend .NET',
+      empresaPasantia: 'Softtek',
+      descripcionPasantia: porTitulo('Desarrollo Backend .NET').descripcion,
+      nombreAlumno: 'Sofía Ramírez',
+      carreraAlumno: 'Licenciatura en Sistemas de Información',
+    ),
+    Solicitud(
+      id: 5,
+      pasantiaId: porTitulo('Marketing Digital y Contenidos').id,
+      usuarioId: idUsuarioAlumnoDemo,
+      estado: 'en_proceso',
+      tutor: 'Lic. Ana Torres',
+      fechaInicio: '2026-09-21',
+      tituloPasantia: 'Marketing Digital y Contenidos',
+      empresaPasantia: 'Grupo Clarín',
+      descripcionPasantia:
+          porTitulo('Marketing Digital y Contenidos').descripcion,
+      nombreAlumno: 'Martín Gómez',
       carreraAlumno: 'Licenciatura en Sistemas de Información',
     ),
     Solicitud(

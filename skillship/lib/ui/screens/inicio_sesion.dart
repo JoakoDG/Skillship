@@ -77,7 +77,7 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => const EmpresaMainScreen(),
+            builder: (context) => EmpresaMainScreen(usuario: usuario),
           ),
         );
       } else if (usuario.rol == 'Universidad') {

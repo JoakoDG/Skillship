@@ -1,5 +1,5 @@
 -- =============================================================================
--- SkillShip - Esquema completo (flujo ESTUDIANTE + flujo UNIVERSIDAD)
+-- SkillShip - Esquema completo (ESTUDIANTE + UNIVERSIDAD + EMPRESA)
 --
 -- Cómo usarlo:
 --   1. Abrí tu proyecto Supabase -> SQL Editor -> New query
@@ -8,16 +8,20 @@
 --
 -- Qué hace:
 --   * Crea las tablas base solo si faltan (no toca lo que ya tenés)
---   * Crea las tablas: pasantias, postulaciones, horas_pasantia, reclamos
---     y perfiles_universidades (alta de la entidad educativa)
+--   * Crea las tablas: pasantias, postulaciones, horas_pasantia, reclamos,
+--     perfiles_universidades (alta de la entidad educativa) y
+--     perfiles_empresas (alta de la empresa)
 --   * Agrega perfiles_estudiantes.universidad_id: vínculo manual
 --     alumno <-> universidad (la universidad vincula por email)
+--   * Agrega pasantias.empresa_id: vínculo explícito pasantía <-> empresa
+--     dueña (la empresa solo ve sus propias pasantías y sus pasantes)
 --   * Abre las políticas RLS para que la app (rol anon) pueda leer y escribir
 --   * Crea el bucket "documentos" de Storage + sus permisos
 --   * Carga datos de ejemplo: 6 propuestas de pasantía, 1 aceptada y en proceso
 --     con horas cargadas y un reclamo, 1 postulación pendiente, y para la
---     universidad: 1 cuenta demo con 2 alumnos vinculados y 4 solicitudes
---     (2 pendientes, 1 en proceso, 1 rechazada)
+--     universidad: 1 cuenta demo con 2 alumnos vinculados y 5 solicitudes
+--     (2 pendientes, 2 en proceso, 1 rechazada). Para la empresa: 1 cuenta
+--     demo dueña de las 6 propuestas con 2 pasantes en proceso
 --
 -- Es idempotente: volver a ejecutarlo no duplica nada (podés pegarlo de nuevo
 -- si ya lo corriste antes, así se agregan las tablas nuevas que falten).
@@ -58,6 +62,16 @@ create table if not exists public.perfiles_universidades (
   telefono   text not null default ''
 );
 
+-- Perfil de la empresa (la cuenta existe en usuarios con rol 'Empresa'; acá
+-- viven sus datos y los 3 documentos del registro)
+create table if not exists public.perfiles_empresas (
+  id         bigserial primary key,
+  usuario_id bigint not null unique references public.usuarios (id) on delete cascade,
+  nombre     text not null,          -- Razón social
+  cuit       text not null default '',
+  telefono   text not null default ''
+);
+
 -- Vínculo manual alumno <-> universidad: la universidad agrega a sus alumnos
 -- por email desde el panel (on delete set null: si se borra la universidad el
 -- alumno queda sin vínculo, no se borra)
@@ -84,6 +98,14 @@ create table if not exists public.pasantias (
   estado           text not null default 'disponible',   -- disponible | cerrada
   created_at       timestamptz not null default now()
 );
+
+-- Vínculo pasantía <-> empresa dueña. Nullable a propósito: las propuestas
+-- heredadas sin dueño siguen siendo visibles para todos (no cambia el flujo
+-- del estudiante). on delete set null: si se borra la empresa la propuesta
+-- queda sin dueño, no se borra.
+alter table public.pasantias
+  add column if not exists empresa_id bigint
+  references public.usuarios (id) on delete set null;
 
 -- Lo que un estudiante envía al postular a una propuesta
 create table if not exists public.postulaciones (
@@ -120,6 +142,7 @@ create index if not exists idx_postulaciones_usuario on public.postulaciones (us
 create index if not exists idx_horas_postulacion     on public.horas_pasantia (postulacion_id);
 create index if not exists idx_reclamos_postulacion  on public.reclamos (postulacion_id);
 create index if not exists idx_alumnos_universidad   on public.perfiles_estudiantes (universidad_id);
+create index if not exists idx_pasantias_empresa     on public.pasantias (empresa_id);
 
 -- -----------------------------------------------------------------------------
 -- 3. POLÍTICAS RLS (la app no usa Supabase Auth: entra con la clave pública)
@@ -131,6 +154,7 @@ create index if not exists idx_alumnos_universidad   on public.perfiles_estudian
 alter table public.usuarios               enable row level security;
 alter table public.perfiles_estudiantes   enable row level security;
 alter table public.perfiles_universidades enable row level security;
+alter table public.perfiles_empresas      enable row level security;
 alter table public.documentos_registro    enable row level security;
 alter table public.pasantias              enable row level security;
 alter table public.postulaciones          enable row level security;
@@ -142,8 +166,8 @@ declare t text;
 begin
   foreach t in array array[
     'usuarios', 'perfiles_estudiantes', 'perfiles_universidades',
-    'documentos_registro', 'pasantias', 'postulaciones',
-    'horas_pasantia', 'reclamos'
+    'perfiles_empresas', 'documentos_registro', 'pasantias',
+    'postulaciones', 'horas_pasantia', 'reclamos'
   ] loop
     execute format(
       'drop policy if exists "acceso_prototipo" on public.%I', t);
@@ -342,7 +366,7 @@ update public.perfiles_estudiantes p
 
 -- 5.4.3. Solicitudes de ejemplo que faltan para el panel de la universidad:
 --         1 pendiente (para aceptar/rechazar) y 1 rechazada. Con las de Sofía
---         (5.3) el panel arranca con 4 en total.
+--         (5.3) y el extra de 5.5.2 el panel arranca con 5 en total.
 do $$
 declare
   v_uni_id      bigint;
@@ -377,4 +401,69 @@ begin
 end $$;
 
 -- Nota: las solicitudes de Sofía (1 pendiente + 1 en proceso) ya se crearon en
--- 5.3, así que el panel de la universidad arranca con 4 solicitudes en total.
+-- 5.3, así que el panel de la universidad arranca con 5 solicitudes en total.
+
+-- 5.5. EMPRESA de prueba (flujo "empresa")
+--      Email: empresa@demo.com   Contraseña: demo1234
+--      Es dueña de las 6 propuestas de 5.2 y arranca con 2 pasantes en proceso.
+insert into public.usuarios (email, password, rol)
+values ('empresa@demo.com', 'demo1234', 'Empresa')
+on conflict (email) do nothing;
+
+insert into public.perfiles_empresas (usuario_id, nombre, cuit, telefono)
+select u.id, 'Globant', '30-70878655-7', '0800-222-3333'
+from public.usuarios u
+where u.email = 'empresa@demo.com'
+  and not exists (
+    select 1 from public.perfiles_empresas p where p.usuario_id = u.id
+  );
+
+-- 5.5.1. Todas las propuestas sin dueño quedan a nombre de la empresa demo.
+--         Idempotente: solo toca las que no tienen empresa_id.
+update public.pasantias p
+   set empresa_id = u.id
+  from public.usuarios u
+ where u.email = 'empresa@demo.com'
+   and p.empresa_id is distinct from u.id;
+
+-- 5.5.2. Segundo pasante EN PROCESO: así el panel "Pasantes" arranca con más
+--         de un caso. El estado lo decide la universidad (5.4.3); acá solo
+--         simulamos que ya fue aceptado y que tiene tutor y horas cargadas.
+do $$
+declare
+  v_martin_id    bigint;
+  v_pasantia_id  bigint;
+  v_post_id      bigint;
+begin
+  select id into v_martin_id
+    from public.usuarios where email = 'alumno@demo.com' limit 1;
+
+  if v_martin_id is null then
+    return;  -- falta el usuario del seed: no hay nada que crear
+  end if;
+
+  select id into v_pasantia_id
+    from public.pasantias where titulo = 'Marketing Digital y Contenidos' limit 1;
+
+  if v_pasantia_id is null then
+    return;  -- falta la propuesta del seed
+  end if;
+
+  insert into public.postulaciones (pasantia_id, usuario_id, estado, tutor, fecha_inicio)
+  values (v_pasantia_id, v_martin_id, 'en_proceso', 'Lic. Ana Torres', date '2026-09-21')
+  on conflict (pasantia_id, usuario_id) do nothing;
+
+  select id into v_post_id from public.postulaciones
+   where pasantia_id = v_pasantia_id and usuario_id = v_martin_id
+   limit 1;
+
+  if v_post_id is null then
+    return;
+  end if;
+
+  if not exists (select 1 from public.horas_pasantia where postulacion_id = v_post_id) then
+    insert into public.horas_pasantia (postulacion_id, fecha, horas, descripcion) values
+      (v_post_id, date '2026-09-21', 8, 'Semana 1: armado de guiones para redes sociales'),
+      (v_post_id, date '2026-09-28', 6, 'Semana 2: publicación de contenidos y métricas');
+  end if;
+end $$;

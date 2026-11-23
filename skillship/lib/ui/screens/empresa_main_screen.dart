@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:skillship/models/usuario.dart';
+import 'package:skillship/ui/widgets/perfil_empresa.dart';
 import 'empresa_gestionar_pasantes_screen.dart';
 import 'empresa_publicar_trabajo_screen.dart';
 
 class EmpresaMainScreen extends StatefulWidget {
-  const EmpresaMainScreen({super.key});
+  final Usuario usuario;
+
+  const EmpresaMainScreen({super.key, required this.usuario});
 
   @override
   State<EmpresaMainScreen> createState() => _EmpresaMainScreenState();
@@ -12,9 +16,9 @@ class EmpresaMainScreen extends StatefulWidget {
 class _EmpresaMainScreenState extends State<EmpresaMainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const EmpresaGestionarPasantesScreen(),
-    const EmpresaPublicarTrabajoScreen(),
+  late final List<Widget> _screens = [
+    EmpresaGestionarPasantesScreen(usuario: widget.usuario),
+    EmpresaPublicarTrabajoScreen(usuario: widget.usuario),
   ];
 
   @override
@@ -33,7 +37,7 @@ class _EmpresaMainScreenState extends State<EmpresaMainScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   InkWell(
-                    onTap: () {},
+                    onTap: () => mostrarPerfilEmpresa(context, widget.usuario),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 12),

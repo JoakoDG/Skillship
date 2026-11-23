@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:skillship/models/perfil_empresa.dart';
 import 'package:skillship/models/usuario.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -77,6 +78,32 @@ class SupabaseService {
       documentos: documentos,
       crearDatos: (usuarioId) async {
         await _client.from('perfiles_universidades').insert({
+          'usuario_id': usuarioId,
+          'nombre': nombre.trim(),
+          'cuit': cuit.trim(),
+          'telefono': telefono.trim(),
+        });
+      },
+    );
+  }
+
+  /// Da de alta la cuenta de una empresa con su perfil y sus 3 documentos
+  /// (mismo mecanismo que el estudiante y la universidad).
+  Future<void> registrarEmpresaCompleto({
+    required String email,
+    required String password,
+    required String nombre,
+    required String cuit,
+    required String telefono,
+    required Map<String, PlatformFile> documentos,
+  }) {
+    return _altaConDocumentos(
+      email: email,
+      password: password,
+      rol: 'Empresa',
+      documentos: documentos,
+      crearDatos: (usuarioId) async {
+        await _client.from('perfiles_empresas').insert({
           'usuario_id': usuarioId,
           'nombre': nombre.trim(),
           'cuit': cuit.trim(),
@@ -250,6 +277,19 @@ class SupabaseService {
       'cuit': fila['cuit']?.toString() ?? '',
       'telefono': fila['telefono']?.toString() ?? '',
     };
+  }
+
+  /// Datos del perfil de la empresa (razón social, CUIT y teléfono).
+  /// Devuelve `null` si la cuenta todavía no cargó su registro.
+  Future<PerfilEmpresa?> obtenerPerfilEmpresa({required int usuarioId}) async {
+    final filas = await _client
+        .from('perfiles_empresas')
+        .select('id, usuario_id, nombre, cuit, telefono')
+        .eq('usuario_id', usuarioId)
+        .limit(1);
+
+    if (filas.isEmpty) return null;
+    return PerfilEmpresa.fromMap(filas.first);
   }
 
   // ===========================================================================

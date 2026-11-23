@@ -23,9 +23,10 @@ Eso crea:
 | --- | --- |
 | Tablas `pasantias`, `postulaciones`, `horas_pasantia`, `reclamos` | Propuestas, postulaciones, horas cargadas y reclamos |
 | Tabla `perfiles_universidades` + columna `universidad_id` | Perfil de la entidad educativa y vínculo manual alumno ↔ universidad |
+| Tabla `perfiles_empresas` + columna `empresa_id` en `pasantias` | Perfil de la empresa y qué propuestas le pertenecen |
 | Políticas RLS | Para que la app (rol `anon`) pueda leer y escribir |
 | Bucket `documentos` de Storage | Donde se guardan los archivos del registro |
-| Datos de ejemplo | 6 propuestas, 1 postulación **aceptada y en proceso** con horas cargadas, 1 reclamo, 1 postulación pendiente, y para la universidad: 1 cuenta demo con **2 alumnos vinculados** y **4 solicitudes** (2 pendientes, 1 en proceso, 1 rechazada) |
+| Datos de ejemplo | 6 propuestas, 1 postulación **aceptada y en proceso** con horas cargadas, 1 reclamo, 1 postulación pendiente, y para la universidad: 1 cuenta demo con **2 alumnos vinculados** y **5 solicitudes** (2 pendientes, 2 en proceso, 1 rechazada). Para la empresa: 1 cuenta demo **dueña de las 6 propuestas** con **2 pasantes en proceso** |
 
 > Si no lo ejecutás, la app igualmente arranca: el registro te avisa que falta
 > el script en vez de perder los archivos a medias.
@@ -109,8 +110,48 @@ Usa el **mismo script SQL** del paso anterior (ya crea todo lo que hace falta).
 | Rol | Universidad |
 
 Tiene **2 alumnos vinculados** (Sofía y Martín, ambos con
-`estudiante@demo.com` y `alumno@demo.com` / `demo1234`) y **4 solicitudes**:
-2 pendientes para aceptar/rechazar, 1 en proceso y 1 rechazada.
+`estudiante@demo.com` y `alumno@demo.com` / `demo1234`) y **5 solicitudes**:
+2 pendientes para aceptar/rechazar, 2 en proceso y 1 rechazada.
+
+---
+
+## Cómo levantar el flujo de la empresa
+
+Usa el **mismo script SQL** del paso anterior (ya crea todo lo que hace falta).
+
+### Recorrer el flujo
+
+1. **Registrarse** → *Registrarse* → rol *Empresa* → completar razón social,
+   CUIT y teléfono, y cargar los 3 documentos pedidos (resolución, copia de DNI
+   de la autoridad legal y acta de designación). Los archivos suben al bucket
+   `documentos` y la cuenta queda en `usuarios` + `perfiles_empresas`.
+2. **Iniciar sesión** → correo + contraseña + rol. Entra al panel con dos
+   pestañas: **Pasantes** y **Publicar Trabajo**.
+3. **Pasantes** → lista las postulaciones a las propuestas de la empresa (las
+   que están *en proceso* son sus pasantes). Con *Mis propuestas* se ven las
+   propias y se puede **cerrar** una (deja de aparecer en "Buscar Trabajos").
+   Tocar un postulante abre su detalle: carrera, pasantía, tutor, horas
+   cargadas y reclamos.
+4. **Cargar horas** → desde el detalle del pasante (si está *en proceso*) se
+   registra una jornada con fecha, horas y descripción.
+5. **Publicar Trabajo** → completa título, ubicación, modalidad, carrera
+   requerida, horas por semana, duración, descripción y requisitos. La
+   propuesta queda en `pasantias` y aparece al instante en el buscador del
+   estudiante y en el panel de la universidad.
+6. **Perfil** (barra lateral, en todas las pantallas) → datos de la empresa y
+   los documentos subidos.
+
+### Cuenta de prueba
+
+| | |
+| --- | --- |
+| Correo | `empresa@demo.com` |
+| Contraseña | `demo1234` |
+| Rol | Empresa |
+
+Es **dueña de las 6 propuestas** de ejemplo y arranca con **2 pasantes en
+proceso** (Sofía en "Desarrollo Backend .NET" y Martín en "Marketing Digital y
+Contenidos").
 
 ---
 
@@ -121,7 +162,7 @@ lib/
 ├── main.dart                  # Arranque + conexión a Supabase
 ├── models/                    # Capa de modelos: Usuario, Pasantia,
 │                              # Postulacion, RegistroHora, Reclamo,
-│                              # Alumno, Solicitud
+│                              # Alumno, Solicitud, PerfilEmpresa
 ├── data/                      # Capa de datos (sin lógica en los widgets)
 │   ├── supabase_service.dart      # Registro con archivos, login, perfiles
 │   ├── pasantias_repository.dart  # Interfaz PasantiasRepository
@@ -130,13 +171,17 @@ lib/
 │   ├── universidad_repository.dart         # Interfaz UniversidadRepository
 │   ├── supabase_universidad_repository.dart
 │   ├── mock_universidad_repository.dart
+│   ├── empresa_repository.dart             # Interfaz EmpresaRepository
+│   ├── supabase_empresa_repository.dart
+│   ├── mock_empresa_repository.dart
 │   ├── datos_de_prueba.dart                # Listas de datos de prueba
 │   ├── repositorio_pasantias.dart          # Fachada con fallback a mocks
-│   └── repositorio_universidad.dart        # Fachada con fallback a mocks
+│   ├── repositorio_universidad.dart        # Fachada con fallback a mocks
+│   └── repositorio_empresa.dart            # Fachada con fallback a mocks
 └── ui/                        # Capa de presentación
     ├── screens/               # Pantallas (una por flujo/rol)
     └── widgets/               # Button, CustomTextField, UploadField,
-                               # perfil_universidad (diálogo compartido)
+                               # perfil_universidad, perfil_empresa
 supabase/
 └── schema.sql                 # Esquema + RLS + Storage + datos de ejemplo
 ```
@@ -144,7 +189,7 @@ supabase/
 ### Capa de repositorios (patrón Repository)
 
 Las pantallas **no** hablan directamente con Supabase: solo conocen las
-interfaces `PasantiasRepository` y `UniversidadRepository`.
+interfaces `PasantiasRepository`, `UniversidadRepository` y `EmpresaRepository`.
 
 ```
 UI (screens/)  →  RepositorioPasantias (fachada)
@@ -154,6 +199,10 @@ UI (screens/)  →  RepositorioPasantias (fachada)
 UI (screens/)  →  RepositorioUniversidad (fachada)
                         ├─ SupabaseUniversidadRepository → base de datos real
                         └─ MockUniversidadRepository      → datos de prueba en listas
+
+UI (screens/)  →  RepositorioEmpresa (fachada)
+                        ├─ SupabaseEmpresaRepository     → base de datos real
+                        └─ MockEmpresaRepository         → datos de prueba en listas
 ```
 
 La fachada prueba la conexión una sola vez: si Supabase responde usa la base
