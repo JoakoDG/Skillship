@@ -45,8 +45,9 @@ flutter run
    (certificado de alumno regular, DNI, CUIL y analítico).
    Los archivos suben al bucket `documentos` y sus rutas quedan guardadas en
    `documentos_registro`.
-2. **Iniciar sesión** → correo + contraseña + rol. Se valida contra la tabla
-   `usuarios` y según el rol guardado entra a cada panel.
+2. **Iniciar sesión** → correo + contraseña. Se valida contra la tabla
+   `usuarios` y según el **rol guardado en el registro** entra a cada panel
+   (ya no se pide el rol al iniciar sesión).
 3. **Buscar pasantías** → lista las propuestas de `pasantias`, con buscador por
    título, empresa, ubicación, modalidad o carrera.
 4. **Detalle de la propuesta** → *Enviar solicitud* crea la fila en
@@ -84,7 +85,7 @@ Usa el **mismo script SQL** del paso anterior (ya crea todo lo que hace falta).
    institución, CUIT y teléfono, y cargar los 4 documentos pedidos (convenio,
    DNI, estatuto social y constancia de CUIT). Los archivos suben al bucket
    `documentos` y la cuenta queda en `usuarios` + `perfiles_universidades`.
-2. **Iniciar sesión** → correo + contraseña + rol. Entra al panel con dos
+2. **Iniciar sesión** → correo + contraseña. Entra al panel con dos
    pestañas: **Alumnos** y **Solicitudes**.
 3. **Alumnos** → lista los alumnos **vinculados** a la institución. Con
    *Agregar alumno* se vincula a un estudiante existente **por su correo**; con
@@ -125,7 +126,7 @@ Usa el **mismo script SQL** del paso anterior (ya crea todo lo que hace falta).
    CUIT y teléfono, y cargar los 3 documentos pedidos (resolución, copia de DNI
    de la autoridad legal y acta de designación). Los archivos suben al bucket
    `documentos` y la cuenta queda en `usuarios` + `perfiles_empresas`.
-2. **Iniciar sesión** → correo + contraseña + rol. Entra al panel con dos
+2. **Iniciar sesión** → correo + contraseña. Entra al panel con dos
    pestañas: **Pasantes** y **Publicar Trabajo**.
 3. **Pasantes** → lista las postulaciones a las propuestas de la empresa (las
    que están *en proceso* son sus pasantes). Con *Mis propuestas* se ven las

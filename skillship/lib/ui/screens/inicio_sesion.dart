@@ -15,9 +15,6 @@ class InicioSesionScreen extends StatefulWidget {
 }
 
 class _InicioSesionScreenState() extends State<InicioSesionScreen> {
-  String? selectedRole;
-  final List<String> roles = ['Estudiante', 'Universidad', 'Empresa'];
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -44,12 +41,6 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
       return;
     }
 
-    // Verificamos que el usuario haya seleccionado un rol
-    if (selectedRole == null) {
-      _mostrarError('Por favor, seleccione un rol para ingresar al prototipo');
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
@@ -58,14 +49,9 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
         password: _passwordController.text,
       );
 
-      if (usuario.rol != selectedRole) {
-        _mostrarError('La cuenta corresponde al rol "${usuario.rol}", no al seleccionado');
-        return;
-      }
-
       if (!mounted) return;
 
-      // Navegación condicional basada en el rol guardado en la base de datos
+      // Navegación según el rol guardado en la base de datos en el registro.
       if (usuario.rol == 'Estudiante') {
         Navigator.push(
           context,
@@ -87,6 +73,8 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
             builder: (context) => UniversidadMainScreen(usuario: usuario),
           ),
         );
+      } else {
+        _mostrarError('La cuenta tiene un rol no reconocido: "${usuario.rol}"');
       }
     } catch (e) {
       _mostrarError(SupabaseService.mensajeError(e));
@@ -149,48 +137,6 @@ class _InicioSesionScreenState() extends State<InicioSesionScreen> {
                             label: 'Contraseña',
                             hintText: 'Ingrese su contraseña',
                             isPassword: true,
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Rol',
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF5F6F8),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: const Color(0xFFE0E0E0),
-                                width: 1,
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: selectedRole,
-                                hint: const Text(
-                                  '(Solo como auxiliar en esta version)',
-                                ),
-                                isExpanded: true,
-                                icon: const Icon(Icons.keyboard_arrow_down),
-                                items: roles.map((String role) {
-                                  return DropdownMenuItem<String>(
-                                    value: role,
-                                    child: Text(role),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  setState(() {
-                                    selectedRole = newValue;
-                                  });
-                                },
-                              ),
-                            ),
                           ),
                           const SizedBox(height: 32.0),
 

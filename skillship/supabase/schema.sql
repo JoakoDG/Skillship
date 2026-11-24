@@ -424,7 +424,7 @@ update public.pasantias p
    set empresa_id = u.id
   from public.usuarios u
  where u.email = 'empresa@demo.com'
-   and p.empresa_id is distinct from u.id;
+   and p.empresa_id is null;
 
 -- 5.5.2. Segundo pasante EN PROCESO: así el panel "Pasantes" arranca con más
 --         de un caso. El estado lo decide la universidad (5.4.3); acá solo
